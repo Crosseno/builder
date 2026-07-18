@@ -29,15 +29,22 @@ use Crosseno\Clues\Assignment\ClueSeed;
 use Crosseno\Clues\Assignment\MissingCluePolicy;
 use Crosseno\Clues\Contract\ClueAssignerInterface;
 use Crosseno\Clues\Exception\ClueAssignmentFailed;
+use Crosseno\Clues\Exception\CluesException;
+use Crosseno\Core\Exception\CoreException;
 use Crosseno\Core\Grid\GridDimensions;
 use Crosseno\Generator\Budget\CancellationTokenInterface;
 use Crosseno\Generator\Budget\SearchBudget;
+use Crosseno\Generator\Exception\GeneratorException;
 use Crosseno\Generator\Request\GenerationRequest;
 use Crosseno\Generator\Result\GenerationMetadata;
 use Crosseno\Generator\Result\GenerationStatus;
 use Crosseno\Generator\Seed\GenerationSeed;
 use Crosseno\Generator\Strategy\GenerationStrategy;
 use Crosseno\Generator\Strategy\StrategyCatalog;
+use Crosseno\Generator\Time\ClockInterface;
+use Crosseno\Generator\Time\SystemClock;
+use Crosseno\Learning\Exception\LearningException;
+use Crosseno\Lexicon\Exception\LexiconException;
 use Crosseno\Lexicon\Language\LanguageMatchingPolicy;
 
 final readonly class CrosswordBuilder implements BuilderInterface
@@ -52,10 +59,12 @@ final readonly class CrosswordBuilder implements BuilderInterface
         private ClueAssignerInterface $clueAssigner,
         private QualityEvaluatorInterface $quality,
         private UsageHistoryInterface $history,
+        private ClockInterface $clock = new SystemClock(),
     ) {}
 
     public function build(BuildRequest $request, IdempotencyKey $idempotencyKey, CancellationTokenInterface $cancellation): BuildResult
     {
+        $startedAt = $this->clock->monotonicNanoseconds();
         $snapshot = $request->canonicalJson();
         $requestHash = hash('sha256', $snapshot);
         $publicationKey = hash('sha256', self::KEY_ALGORITHM . "\0" . $idempotencyKey->value . "\0" . $requestHash);
@@ -73,7 +82,7 @@ final readonly class CrosswordBuilder implements BuilderInterface
             $history = $request->recentUse->maximumBuilds === 0
                 ? UsageHistorySnapshot::available()
                 : $this->history->lookup(new UsageHistoryQuery($request->answerLanguage, $request->clueLanguage, $request->recentUse->maximumBuilds));
-        } catch (\Throwable) {
+        } catch (\Exception) {
             $history = UsageHistorySnapshot::unavailable();
         }
         if (!$history->available) {
@@ -85,8 +94,8 @@ final readonly class CrosswordBuilder implements BuilderInterface
 
         try {
             $eligibility = $this->eligibility->build($request, $pack, $history);
-        } catch (\Throwable $exception) {
-            return $this->failure(BuildStatus::Failed, $publicationKey, $snapshot, $requestHash, 'eligibility_failed', $exception->getMessage(), $warnings, $fallbacks, versions: $versions);
+        } catch (BuilderException|LearningException|LexiconException|CluesException|CoreException) {
+            return $this->failure(BuildStatus::Failed, $publicationKey, $snapshot, $requestHash, 'eligibility_failed', 'Answer and clue eligibility could not be resolved for the requested policies.', $warnings, $fallbacks, versions: $versions);
         }
         if ($eligibility->eligibleLearningAnswers === 0) {
             return $this->failure(BuildStatus::Failed, $publicationKey, $snapshot, $requestHash, 'empty_eligibility_mask', 'No answer has an eligible clue under the requested learning and history policy.', $warnings, $fallbacks, versions: $versions);
@@ -99,13 +108,16 @@ final readonly class CrosswordBuilder implements BuilderInterface
         $remainingAttempts = $request->workBudget->maximumAttempts;
         $remainingNodes = $request->workBudget->maximumNodes;
         $remainingBacktracks = $request->workBudget->maximumBacktracks;
-        $remainingDuration = $request->workBudget->maximumDurationMilliseconds;
         $stepIndex = 0;
         $lastFailure = new BuildFailure('not_started', 'No generation run was started.');
         $lastGeneration = null;
         $bestRejectedQuality = null;
 
         while ($run < $request->workBudget->maximumRuns && $remainingAttempts > 0 && $remainingNodes > 0) {
+            $remainingDuration = $this->remainingDuration($startedAt, $request->workBudget->maximumDurationMilliseconds);
+            if ($remainingDuration === 0) {
+                break;
+            }
             $seed = $this->runSeed($request->seed, $run);
             $maximumEntryLength = min($request->maximumEntryLength, max($dimensions->rows, $dimensions->columns));
             if ($request->minimumEntryLength > $maximumEntryLength) {
@@ -115,7 +127,7 @@ final readonly class CrosswordBuilder implements BuilderInterface
                     $remainingAttempts,
                     $remainingNodes,
                     $remainingBacktracks,
-                    $remainingDuration === null ? null : max(1, $remainingDuration),
+                    $remainingDuration,
                 );
                 $generationRequest = new GenerationRequest(
                     $dimensions,
@@ -131,8 +143,8 @@ final readonly class CrosswordBuilder implements BuilderInterface
                 );
                 try {
                     $generated = $this->generators->create($eligibility->solverIndex, $pack->answerPack->manifest())->generate($generationRequest, $cancellation);
-                } catch (\Throwable $exception) {
-                    $lastFailure = new BuildFailure('generation_exception', $exception->getMessage());
+                } catch (BuilderException|GeneratorException|LexiconException|CoreException) {
+                    $lastFailure = new BuildFailure('generation_exception', 'Generation failed at a documented package boundary.');
                     $generated = null;
                 }
                 if ($generated !== null) {
@@ -140,13 +152,13 @@ final readonly class CrosswordBuilder implements BuilderInterface
                     $remainingAttempts = max(0, $remainingAttempts - $generated->metadata->attempts);
                     $remainingNodes = max(0, $remainingNodes - $generated->metadata->exploredNodes);
                     $remainingBacktracks = max(0, $remainingBacktracks - $generated->metadata->backtracks);
-                    if ($remainingDuration !== null) {
-                        $remainingDuration = max(0, $remainingDuration - $generated->metadata->durationMilliseconds);
-                    }
                     if ($generated->status === GenerationStatus::Interrupted) {
                         return $this->failure(BuildStatus::Failed, $publicationKey, $snapshot, $requestHash, 'generation_interrupted', 'Generation was interrupted by a wall-clock or cancellation safety limit.', $warnings, $fallbacks, $generated->metadata, $versions);
                     }
                     if ($generated->succeeded() && $generated->crossword !== null) {
+                        if ($this->remainingDuration($startedAt, $request->workBudget->maximumDurationMilliseconds) === 0) {
+                            return $this->failure(BuildStatus::Failed, $publicationKey, $snapshot, $requestHash, 'global_duration_exhausted', 'The global wall-clock safety limit expired before clue assignment.', $warnings, $fallbacks, $generated->metadata, $versions);
+                        }
                         try {
                             $clues = $this->clueAssigner->assign(
                                 $generated->crossword,
@@ -160,6 +172,9 @@ final readonly class CrosswordBuilder implements BuilderInterface
                                 new ClueSeed(hash('sha256', $publicationKey . "\0" . $seed->unsignedHex . "\0" . $pack->identity())),
                             );
                             $publicationQuality = $this->quality->evaluate($generated->metadata, $clues, \count($generated->crossword->entries()));
+                            if ($this->remainingDuration($startedAt, $request->workBudget->maximumDurationMilliseconds) === 0) {
+                                return $this->failure(BuildStatus::Failed, $publicationKey, $snapshot, $requestHash, 'global_duration_exhausted', 'The global wall-clock safety limit expired during clue assignment or quality evaluation.', $warnings, $fallbacks, $generated->metadata, $versions);
+                            }
                             if ($clues->isValid() && \count($clues->clueSet->assignments()) === \count($generated->crossword->entries())
                                 && $publicationQuality->final >= $request->qualityThreshold) {
                                 return BuildResult::success($publicationKey, $snapshot, $requestHash, $generated->crossword, $clues->clueSet, $generated->metadata, $publicationQuality, $versions, $warnings, $fallbacks);
@@ -170,10 +185,10 @@ final readonly class CrosswordBuilder implements BuilderInterface
                                 $clues->isValid() ? 'Complete candidate did not pass the publication-quality threshold.' : 'Assigned clue set failed validation.',
                                 ['quality' => $publicationQuality->final, 'threshold' => $request->qualityThreshold, 'violations' => \count($clues->violations())],
                             );
-                        } catch (ClueAssignmentFailed $exception) {
-                            $lastFailure = new BuildFailure('no_valid_clues', $exception->getMessage());
-                        } catch (\Throwable) {
-                            $lastFailure = new BuildFailure('clue_assignment_failed', 'Clue assignment or publication-quality evaluation failed unexpectedly.');
+                        } catch (ClueAssignmentFailed) {
+                            $lastFailure = new BuildFailure('no_valid_clues', 'No complete valid clue assignment could be produced.');
+                        } catch (CluesException) {
+                            $lastFailure = new BuildFailure('clue_assignment_failed', 'Clue assignment failed at a documented package boundary.');
                         }
                     } elseif (!$generated->succeeded()) {
                         $generationFailure = $generated->failure;
@@ -265,5 +280,16 @@ final readonly class CrosswordBuilder implements BuilderInterface
     private function state(GenerationStrategy $strategy, GridDimensions $dimensions): string
     {
         return $strategy->value . ':' . $dimensions->rows . 'x' . $dimensions->columns;
+    }
+
+    /** @phpstan-impure */
+    private function remainingDuration(int $startedAt, ?int $maximumMilliseconds): ?int
+    {
+        if ($maximumMilliseconds === null) {
+            return null;
+        }
+        $elapsedMilliseconds = intdiv(max(0, $this->clock->monotonicNanoseconds() - $startedAt), 1_000_000);
+
+        return max(0, $maximumMilliseconds - $elapsedMilliseconds);
     }
 }

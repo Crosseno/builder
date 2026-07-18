@@ -28,7 +28,7 @@ final readonly class FilteringClueProvider implements ClueProviderInterface
 
     public function provide(ClueQuery $query): iterable
     {
-        $expanded = new ClueQuery($query->senseKey, $query->language, $query->languageMatching, $query->types(), 10_000);
+        $expanded = new ClueQuery($query->senseKey, $query->language, $query->languageMatching, $query->types(), ClueQuery::MAXIMUM_RESULTS);
         $count = 0;
         foreach ($this->inner->provide($expanded) as $clue) {
             if (!$clue instanceof Clue || isset($this->excludedIds[$clue->id->value])

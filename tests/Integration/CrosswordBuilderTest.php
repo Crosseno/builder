@@ -4,11 +4,17 @@ declare(strict_types=1);
 
 namespace Crosseno\Builder\Tests\Integration;
 
+use Crosseno\Builder\Exception\PackResolutionFailed;
 use Crosseno\Builder\History\MissingHistoryPolicy;
 use Crosseno\Builder\History\UsageHistorySnapshot;
+use Crosseno\Builder\Pack\InMemoryPackCatalog;
+use Crosseno\Builder\Pack\ManifestCompatibilityValidator;
+use Crosseno\Builder\Pack\PackResolver;
+use Crosseno\Builder\Pack\RuntimeContractVersions;
 use Crosseno\Builder\Policy\FailurePolicy;
 use Crosseno\Builder\Policy\FallbackAction;
 use Crosseno\Builder\Policy\FallbackStep;
+use Crosseno\Builder\Policy\WorkBudget;
 use Crosseno\Builder\Request\ClueMode;
 use Crosseno\Builder\Request\IdempotencyKey;
 use Crosseno\Builder\Result\BuildStatus;
@@ -20,6 +26,7 @@ use Crosseno\Core\Grid\GridDimensions;
 use Crosseno\Generator\Budget\NeverCancelled;
 use Crosseno\Generator\Result\GenerationStatus;
 use Crosseno\Generator\Strategy\GenerationStrategy;
+use Crosseno\Generator\Time\ClockInterface;
 use Crosseno\Learning\Model\CefrLevel;
 use PHPUnit\Framework\TestCase;
 
@@ -113,7 +120,7 @@ final class CrosswordBuilderTest extends TestCase
         $noClues = FixtureFactory::builder(
             [FixtureFactory::pack(FixtureFactory::records())],
             new ScenarioGeneratorFactory(),
-            new TestClueAssigner(fail: true),
+            new TestClueAssigner(fail: true, failureMessage: 'secret adapter path: /srv/private'),
             new TestHistory(UsageHistorySnapshot::available()),
         )->build(FixtureFactory::request(), new IdempotencyKey('clue-case'), new NeverCancelled());
 
@@ -121,7 +128,79 @@ final class CrosswordBuilderTest extends TestCase
         self::assertSame('quality_threshold_rejected', $qualityRejected->failure?->code);
         self::assertNull($qualityRejected->crossword);
         self::assertSame('no_valid_clues', $noClues->failure?->code);
+        self::assertSame('No complete valid clue assignment could be produced.', $noClues->failure?->message);
         self::assertNull($noClues->clues);
+    }
+
+    public function testAnswerPackMinimumContractVersionIsEnforced(): void
+    {
+        $pack = FixtureFactory::pack(FixtureFactory::records());
+        $resolver = new PackResolver(
+            new InMemoryPackCatalog([$pack]),
+            new ManifestCompatibilityValidator(new RuntimeContractVersions(core: '0.0.1')),
+        );
+
+        $this->expectException(PackResolutionFailed::class);
+        $this->expectExceptionMessage('answer pack requires core contract 0.1.0 or newer');
+        $resolver->resolve(FixtureFactory::request());
+    }
+
+    public function testLearningPackMinimumContractVersionIsEnforced(): void
+    {
+        $records = FixtureFactory::records();
+        $pack = FixtureFactory::pack($records, 'pl', FixtureFactory::learningPack($records));
+        $resolver = new PackResolver(
+            new InMemoryPackCatalog([$pack]),
+            new ManifestCompatibilityValidator(new RuntimeContractVersions(clues: '0.0.1')),
+        );
+
+        $this->expectException(PackResolutionFailed::class);
+        $this->expectExceptionMessage('learning pack requires clues contract 0.1.0 or newer');
+        $resolver->resolve(FixtureFactory::request('pl', ClueMode::Learning, CefrLevel::A1));
+    }
+
+    public function testGlobalDurationExpiryPreventsAnotherFallbackRun(): void
+    {
+        $clock = new class implements ClockInterface {
+            /** @var list<int> */
+            private array $times = [0, 0, 1_000_000];
+
+            public function monotonicNanoseconds(): int
+            {
+                return array_shift($this->times) ?? 1_000_000;
+            }
+        };
+        $generator = new ScenarioGeneratorFactory([GenerationStatus::Unsatisfiable, GenerationStatus::Success]);
+        $policy = new FailurePolicy([FallbackStep::retry(), FallbackStep::fail()]);
+        $request = FixtureFactory::request(
+            failurePolicy: $policy,
+            workBudget: new WorkBudget(5, 10, 1_000, 100, 1),
+        );
+
+        $result = FixtureFactory::builder(
+            [FixtureFactory::pack(FixtureFactory::records())],
+            $generator,
+            new TestClueAssigner(),
+            new TestHistory(UsageHistorySnapshot::available()),
+            $clock,
+        )->build($request, new IdempotencyKey('duration-case'), new NeverCancelled());
+
+        self::assertSame('global_work_budget_exhausted', $result->failure?->code);
+        self::assertCount(1, $generator->requests);
+    }
+
+    public function testProgrammingErrorsFromGenerationAreNotConvertedToDomainFailures(): void
+    {
+        $builder = FixtureFactory::builder(
+            [FixtureFactory::pack(FixtureFactory::records())],
+            new ScenarioGeneratorFactory(throwable: new \TypeError('programming defect')),
+            new TestClueAssigner(),
+            new TestHistory(UsageHistorySnapshot::available()),
+        );
+
+        $this->expectException(\TypeError::class);
+        $this->expectExceptionMessage('programming defect');
+        $builder->build(FixtureFactory::request(), new IdempotencyKey('error-case'), new NeverCancelled());
     }
 
     public function testMissingAndIncompatiblePacksReturnStructuredFailures(): void

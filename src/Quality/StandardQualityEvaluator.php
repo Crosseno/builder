@@ -15,7 +15,7 @@ final readonly class StandardQualityEvaluator implements QualityEvaluatorInterfa
         $structural = $generation->scores?->structural->millionths ?? 0;
         $lexical = $generation->scores?->lexical->millionths ?? 0;
         $assignments = $clues->clueSet->assignments();
-        $clueTotal = array_sum(array_map(static fn($assignment): int => max(0, min(10_000, $assignment->score)), $assignments));
+        $clueTotal = array_sum(array_map(static fn($assignment): int => $assignment->score, $assignments));
         $clueScore = $assignments === [] ? 0 : intdiv($clueTotal * 100, \count($assignments));
         $completeness = $expectedClues === 0 ? 0 : intdiv(\count($assignments) * 1_000_000, $expectedClues);
         if (!$clues->isValid() || \count($assignments) !== $expectedClues) {

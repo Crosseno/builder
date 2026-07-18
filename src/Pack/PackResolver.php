@@ -11,11 +11,15 @@ use Crosseno\Builder\Request\ClueMode;
 
 final readonly class PackResolver
 {
-    public function __construct(private PackCatalogInterface $catalog) {}
+    public function __construct(
+        private PackCatalogInterface $catalog,
+        private ManifestCompatibilityValidator $compatibility = new ManifestCompatibilityValidator(),
+    ) {}
 
     public function resolve(BuildRequest $request): PackDescriptor
     {
         $matches = [];
+        $compatibilityFailure = null;
         foreach ($this->catalog->packs() as $pack) {
             if ($pack->answerPack->metadata()->answerLanguage->value !== $request->answerLanguage->value
                 || $pack->clueLanguage->value !== $request->clueLanguage->value) {
@@ -24,6 +28,15 @@ final readonly class PackResolver
             $needsLearning = $request->clueMode === ClueMode::Learning
                 || $request->answerLanguage->value !== $request->clueLanguage->value;
             if ($needsLearning && $pack->learningPack === null) {
+                continue;
+            }
+            try {
+                $this->compatibility->assertLanguagePack($pack->answerPack->manifest());
+                if ($pack->learningPack !== null) {
+                    $this->compatibility->assertLearningPack($pack->learningPack->manifest());
+                }
+            } catch (PackResolutionFailed $exception) {
+                $compatibilityFailure ??= $exception;
                 continue;
             }
             if ($pack->learningPack !== null) {
@@ -38,6 +51,9 @@ final readonly class PackResolver
             $matches[] = $pack;
         }
         if ($matches === []) {
+            if ($compatibilityFailure !== null) {
+                throw $compatibilityFailure;
+            }
             throw new PackResolutionFailed('No installed pack matches the complete language and artifact compatibility tuple.');
         }
         usort($matches, static fn(PackDescriptor $left, PackDescriptor $right): int => strcmp($left->identity(), $right->identity()));

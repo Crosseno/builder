@@ -60,6 +60,8 @@ use Crosseno\Generator\Score\GenerationScores;
 use Crosseno\Generator\Seed\GenerationSeed;
 use Crosseno\Generator\Strategy\GenerationStrategy;
 use Crosseno\Generator\Strategy\StrategyCatalog;
+use Crosseno\Generator\Time\ClockInterface;
+use Crosseno\Generator\Time\SystemClock;
 use Crosseno\Learning\Contract\CoverageIndexInterface;
 use Crosseno\Learning\Contract\LearningCatalogInterface;
 use Crosseno\Learning\Contract\LearningPackInterface;
@@ -191,6 +193,7 @@ final class FixtureFactory
         ?FailurePolicy $failurePolicy = null,
         int $qualityThreshold = 700_000,
         MissingHistoryPolicy $missingHistory = MissingHistoryPolicy::Fail,
+        ?WorkBudget $workBudget = null,
     ): BuildRequest {
         return new BuildRequest(
             new LanguageCode('en'),
@@ -206,7 +209,7 @@ final class FixtureFactory
             new RecentUsePolicy(5, $missingHistory),
             $qualityThreshold,
             $failurePolicy ?? FailurePolicy::fail(),
-            new WorkBudget(5, 10, 1_000, 100),
+            $workBudget ?? new WorkBudget(5, 10, 1_000, 100),
             3,
             5,
             ValidationProfile::permissive(),
@@ -215,8 +218,13 @@ final class FixtureFactory
     }
 
     /** @param list<PackDescriptor> $packs */
-    public static function builder(array $packs, ScenarioGeneratorFactory $generators, TestClueAssigner $clues, TestHistory $history): CrosswordBuilder
-    {
+    public static function builder(
+        array $packs,
+        ScenarioGeneratorFactory $generators,
+        TestClueAssigner $clues,
+        TestHistory $history,
+        ?ClockInterface $clock = null,
+    ): CrosswordBuilder {
         return new CrosswordBuilder(
             new PackResolver(new InMemoryPackCatalog($packs)),
             new EligibilityBuilder(),
@@ -224,6 +232,7 @@ final class FixtureFactory
             $clues,
             new StandardQualityEvaluator(),
             $history,
+            $clock ?? new SystemClock(),
         );
     }
 }
@@ -291,8 +300,11 @@ final class ScenarioGeneratorFactory implements GeneratorFactoryInterface
     public array $requests = [];
 
     /** @param list<GenerationStatus> $statuses */
-    public function __construct(array $statuses = [GenerationStatus::Success], private readonly int $score = 800_000)
-    {
+    public function __construct(
+        array $statuses = [GenerationStatus::Success],
+        private readonly int $score = 800_000,
+        private readonly ?\Throwable $throwable = null,
+    ) {
         $this->statuses = $statuses;
     }
 
@@ -312,6 +324,9 @@ final class ScenarioGeneratorFactory implements GeneratorFactoryInterface
 
     public function result(GenerationRequest $request): GenerationResult
     {
+        if ($this->throwable !== null) {
+            throw $this->throwable;
+        }
         $status = array_shift($this->statuses) ?? GenerationStatus::Success;
         $scores = new GenerationScores(new FixedScore($this->score), new FixedScore($this->score), new FixedScore($this->score), new FixedScore($this->score), new FixedScore($this->score));
         $metadata = new GenerationMetadata(
@@ -354,12 +369,16 @@ final class ScenarioGeneratorFactory implements GeneratorFactoryInterface
 
 final readonly class TestClueAssigner implements ClueAssignerInterface
 {
-    public function __construct(private int $score = 10_000, private bool $fail = false) {}
+    public function __construct(
+        private int $score = 10_000,
+        private bool $fail = false,
+        private string $failureMessage = 'No valid fixture clue exists.',
+    ) {}
 
     public function assign(Crossword $crossword, ClueProviderInterface $provider, ClueAssignmentConstraints $constraints, ClueSeed $seed): ClueAssignmentResult
     {
         if ($this->fail) {
-            throw new ClueAssignmentFailed('No valid fixture clue exists.');
+            throw new ClueAssignmentFailed($this->failureMessage);
         }
         $assignments = [];
         foreach ($crossword->entries() as $index => $entry) {

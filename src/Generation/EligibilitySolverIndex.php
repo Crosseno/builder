@@ -27,7 +27,7 @@ final readonly class EligibilitySolverIndex implements SolverIndexInterface
 
     public function candidates(CandidateQuery $query): CandidateSet
     {
-        $expanded = new CandidateQuery($query->pattern, $query->constraints, 100_000, $query->ordering);
+        $expanded = new CandidateQuery($query->pattern, $query->constraints, CandidateQuery::MAXIMUM_RESULTS, $query->ordering);
         $candidates = $this->inner->candidates($expanded);
         $eligible = array_values(array_filter(
             $candidates->records(),
