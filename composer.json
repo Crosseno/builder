@@ -1,0 +1,40 @@
+{
+    "name": "crosseno/builder",
+    "description": "Storage-neutral orchestration for producing publication-ready Crosseno crosswords.",
+    "type": "library",
+    "license": "MIT",
+    "repositories": [
+        {"type": "path", "url": "../core", "options": {"symlink": true, "versions": {"crosseno/core": "0.1.0"}}},
+        {"type": "path", "url": "../lexicon", "options": {"symlink": true, "versions": {"crosseno/lexicon": "0.1.0"}}},
+        {"type": "path", "url": "../generator", "options": {"symlink": true, "versions": {"crosseno/generator": "0.1.0"}}},
+        {"type": "path", "url": "../clues", "options": {"symlink": true, "versions": {"crosseno/clues": "0.1.0"}}},
+        {"type": "path", "url": "../learning", "options": {"symlink": true, "versions": {"crosseno/learning": "0.1.0"}}}
+    ],
+    "require": {
+        "php": "^8.5",
+        "crosseno/clues": "^0.1",
+        "crosseno/core": "^0.1",
+        "crosseno/generator": "^0.1",
+        "crosseno/learning": "^0.1",
+        "crosseno/lexicon": "^0.1"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "phpstan/phpstan": "^2.2",
+        "phpunit/phpunit": "^12.5"
+    },
+    "autoload": {"psr-4": {"Crosseno\\Builder\\": "src/"}},
+    "autoload-dev": {"psr-4": {"Crosseno\\Builder\\Tests\\": "tests/"}},
+    "scripts": {
+        "test": "phpunit",
+        "analyse": "phpstan analyse --no-progress",
+        "lint": "php-cs-fixer fix --dry-run --diff",
+        "format": "php-cs-fixer fix",
+        "check": ["@lint", "@analyse", "@test"]
+    },
+    "config": {"allow-plugins": {}, "sort-packages": true},
+    "support": {
+        "issues": "https://github.com/Crosseno/builder/issues",
+        "source": "https://github.com/Crosseno/builder"
+    }
+}

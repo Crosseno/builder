@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dependencies: [lowest, current]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: builder
+      - uses: actions/checkout@v5
+        with:
+          repository: Crosseno/core
+          path: core
+      - uses: actions/checkout@v5
+        with:
+          repository: Crosseno/lexicon
+          path: lexicon
+      - uses: actions/checkout@v5
+        with:
+          repository: Crosseno/generator
+          path: generator
+      - uses: actions/checkout@v5
+        with:
+          repository: Crosseno/clues
+          path: clues
+      - uses: actions/checkout@v5
+        with:
+          repository: Crosseno/learning
+          path: learning
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+          extensions: intl, mbstring
+          tools: composer:v2
+      - uses: ramsey/composer-install@v4
+        with:
+          dependency-versions: ${{ matrix.dependencies }}
+          working-directory: builder
+      - run: composer check
+        working-directory: builder
