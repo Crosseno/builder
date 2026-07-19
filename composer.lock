@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2e14605395845ee9146af2ed8ad1d1d7",
+    "content-hash": "ae939202a5918758c7287697608d7ae1",
     "packages": [
         {
             "name": "crosseno/clues",
@@ -12,7 +12,7 @@
             "dist": {
                 "type": "path",
                 "url": "../clues",
-                "reference": "7fe811d250b36680967da4c1daca9731a1130495"
+                "reference": "0f3ca0158fc009e4fd01551493eb492da52c63ee"
             },
             "require": {
                 "crosseno/core": "^0.1",
@@ -58,7 +58,7 @@
             "license": [
                 "MIT"
             ],
-            "description": "Language-neutral clue lookup, validation, scoring, selection, and deterministic assignment for Crosseno.",
+            "description": "Language-neutral clue selection, validation, and deterministic assignment for Crosseno crosswords.",
             "support": {
                 "issues": "https://github.com/Crosseno/clues/issues",
                 "source": "https://github.com/Crosseno/clues"
@@ -74,7 +74,7 @@
             "dist": {
                 "type": "path",
                 "url": "../core",
-                "reference": "ca8dbf764633eaacf1241283dcd91789576fcf28"
+                "reference": "2b82164097e80e47bc1d3e14c0b85afc229bd77b"
             },
             "require": {
                 "php": "^8.5"
@@ -117,7 +117,7 @@
             "license": [
                 "MIT"
             ],
-            "description": "Language-independent domain model, validation, and snapshots for Crosseno.",
+            "description": "Language-independent domain objects, immutable grids, structural validation, and deterministic snapshots for Crosseno.",
             "support": {
                 "issues": "https://github.com/Crosseno/core/issues",
                 "source": "https://github.com/Crosseno/core"
@@ -133,7 +133,7 @@
             "dist": {
                 "type": "path",
                 "url": "../generator",
-                "reference": "eecfabd4d53e591a608626799d83a0fbe378acd7"
+                "reference": "f5e9a77aa3706aa73def6ae7c1dc12ac16aded08"
             },
             "require": {
                 "crosseno/core": "^0.1",
@@ -178,7 +178,7 @@
             "license": [
                 "MIT"
             ],
-            "description": "Deterministic bounded free-form and fixed-grid crossword generation for Crosseno.",
+            "description": "Deterministic, bounded free-form crossword generation and fixed-grid filling for Crosseno.",
             "support": {
                 "issues": "https://github.com/Crosseno/generator/issues",
                 "source": "https://github.com/Crosseno/generator"
@@ -194,7 +194,7 @@
             "dist": {
                 "type": "path",
                 "url": "../learning",
-                "reference": "2ebdbff29ab50f82a68aacc588d36d324c8dc14c"
+                "reference": "afa9e2ff830ad21e42550eaf1254ced56ea25cab"
             },
             "require": {
                 "crosseno/clues": "^0.1",
@@ -240,7 +240,7 @@
             "license": [
                 "MIT"
             ],
-            "description": "Directional bilingual learning contracts and coverage filtering for Crosseno.",
+            "description": "Storage-neutral contracts for directional bilingual learning packs in Crosseno.",
             "support": {
                 "issues": "https://github.com/Crosseno/learning/issues",
                 "source": "https://github.com/Crosseno/learning"
@@ -256,7 +256,7 @@
             "dist": {
                 "type": "path",
                 "url": "../lexicon",
-                "reference": "6cdb2e6d0a9daf6fca22200272ba1fa89a771310"
+                "reference": "ecf21b6cdb7b8b2cbd7dbe1a637bb7ac002e06ea"
             },
             "require": {
                 "crosseno/core": "^0.1",
@@ -301,7 +301,7 @@
             "license": [
                 "MIT"
             ],
-            "description": "Storage-neutral language-pack, lexical catalog, and solver candidate contracts for Crosseno.",
+            "description": "Storage-neutral contracts for Crosseno language packs, lexical catalogs, and solver candidate queries.",
             "support": {
                 "issues": "https://github.com/Crosseno/lexicon/issues",
                 "source": "https://github.com/Crosseno/lexicon"
@@ -595,6 +595,205 @@
                 }
             ],
             "time": "2024-05-06T16:37:16+00:00"
+        },
+        {
+            "name": "crosseno/language-en",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "../language-en",
+                "reference": "72f2990508dcf285cfaa33d21d052b0bfa56b1d4"
+            },
+            "require": {
+                "crosseno/core": "^0.1",
+                "crosseno/lexicon": "^0.1",
+                "crosseno/lexicon-index": "^0.1",
+                "crosseno/lexicon-sqlite": "^0.1",
+                "ext-intl": "*",
+                "ext-mbstring": "*",
+                "php": "^8.5"
+            },
+            "require-dev": {
+                "crosseno/compiler": "^0.1",
+                "friendsofphp/php-cs-fixer": "^3.95",
+                "phpstan/phpstan": "^2.2",
+                "phpunit/phpunit": "^12.5"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Crosseno\\LanguageEn\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Crosseno\\LanguageEn\\Build\\": "build/",
+                    "Crosseno\\LanguageEn\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "artifacts:build": [
+                    "php bin/build-artifacts.php"
+                ],
+                "artifacts:verify": [
+                    "php bin/verify-artifacts.php"
+                ],
+                "test": [
+                    "phpunit"
+                ],
+                "analyse": [
+                    "phpstan analyse --no-progress"
+                ],
+                "lint": [
+                    "php-cs-fixer fix --dry-run --diff"
+                ],
+                "format": [
+                    "php-cs-fixer fix"
+                ],
+                "check": [
+                    "@lint",
+                    "@analyse",
+                    "@test",
+                    "@artifacts:verify"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Versioned English language rules and a legally redistributable development lexicon for Crosseno.",
+            "support": {
+                "issues": "https://github.com/Crosseno/language-en/issues",
+                "source": "https://github.com/Crosseno/language-en"
+            },
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "crosseno/lexicon-index",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "../lexicon-index",
+                "reference": "f5d9e1e01de630ff2cd4dca22611d2c9a3604d2a"
+            },
+            "require": {
+                "crosseno/core": "^0.1",
+                "crosseno/lexicon": "^0.1",
+                "php": "^8.5"
+            },
+            "require-dev": {
+                "crosseno/compiler": "^0.1",
+                "friendsofphp/php-cs-fixer": "^3.95",
+                "phpstan/phpstan": "^2.2",
+                "phpunit/phpunit": "^12.5"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Crosseno\\LexiconIndex\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Crosseno\\LexiconIndex\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "analyse": [
+                    "phpstan analyse --no-progress"
+                ],
+                "lint": [
+                    "php-cs-fixer fix --dry-run --diff"
+                ],
+                "format": [
+                    "php-cs-fixer fix"
+                ],
+                "check": [
+                    "@lint",
+                    "@analyse",
+                    "@test"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Pure-PHP, checksummed solver indexes for Crosseno language packs.",
+            "support": {
+                "issues": "https://github.com/Crosseno/lexicon-index/issues",
+                "source": "https://github.com/Crosseno/lexicon-index"
+            },
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
+        },
+        {
+            "name": "crosseno/lexicon-sqlite",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "../lexicon-sqlite",
+                "reference": "47f289e4394b0812c88f587408ffa69c878ebb5f"
+            },
+            "require": {
+                "crosseno/core": "^0.1",
+                "crosseno/lexicon": "^0.1",
+                "ext-pdo": "*",
+                "ext-pdo_sqlite": "*",
+                "php": "^8.5"
+            },
+            "require-dev": {
+                "friendsofphp/php-cs-fixer": "^3.95",
+                "phpstan/phpstan": "^2.2",
+                "phpunit/phpunit": "^12.5"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Crosseno\\LexiconSqlite\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "Crosseno\\LexiconSqlite\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "test": [
+                    "phpunit"
+                ],
+                "analyse": [
+                    "phpstan analyse --no-progress"
+                ],
+                "lint": [
+                    "php-cs-fixer fix --dry-run --diff"
+                ],
+                "format": [
+                    "php-cs-fixer fix"
+                ],
+                "check": [
+                    "@lint",
+                    "@analyse",
+                    "@test"
+                ]
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Read-only SQLite access to rich lexical metadata in Crosseno language packs.",
+            "support": {
+                "issues": "https://github.com/Crosseno/lexicon-sqlite/issues",
+                "source": "https://github.com/Crosseno/lexicon-sqlite"
+            },
+            "transport-options": {
+                "symlink": true,
+                "relative": true
+            }
         },
         {
             "name": "ergebnis/agent-detector",

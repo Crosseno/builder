@@ -8,7 +8,10 @@
         {"type": "path", "url": "../lexicon", "options": {"symlink": true, "versions": {"crosseno/lexicon": "0.1.0"}}},
         {"type": "path", "url": "../generator", "options": {"symlink": true, "versions": {"crosseno/generator": "0.1.0"}}},
         {"type": "path", "url": "../clues", "options": {"symlink": true, "versions": {"crosseno/clues": "0.1.0"}}},
-        {"type": "path", "url": "../learning", "options": {"symlink": true, "versions": {"crosseno/learning": "0.1.0"}}}
+        {"type": "path", "url": "../learning", "options": {"symlink": true, "versions": {"crosseno/learning": "0.1.0"}}},
+        {"type": "path", "url": "../lexicon-index", "options": {"symlink": true, "versions": {"crosseno/lexicon-index": "0.1.0"}}},
+        {"type": "path", "url": "../lexicon-sqlite", "options": {"symlink": true, "versions": {"crosseno/lexicon-sqlite": "0.1.0"}}},
+        {"type": "path", "url": "../language-en", "options": {"symlink": true, "versions": {"crosseno/language-en": "0.1.0"}}}
     ],
     "require": {
         "php": "^8.5",
@@ -19,6 +22,7 @@
         "crosseno/lexicon": "^0.1"
     },
     "require-dev": {
+        "crosseno/language-en": "^0.1",
         "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^12.5"
@@ -26,11 +30,12 @@
     "autoload": {"psr-4": {"Crosseno\\Builder\\": "src/"}},
     "autoload-dev": {"psr-4": {"Crosseno\\Builder\\Tests\\": "tests/"}},
     "scripts": {
+        "example:english": "php examples/generate-english.php",
         "test": "phpunit",
         "analyse": "phpstan analyse --no-progress",
         "lint": "php-cs-fixer fix --dry-run --diff",
         "format": "php-cs-fixer fix",
-        "check": ["@lint", "@analyse", "@test"]
+        "check": ["@lint", "@analyse", "@test", "@example:english"]
     },
     "config": {"allow-plugins": {}, "sort-packages": true},
     "support": {

@@ -8,6 +8,7 @@ use Crosseno\Builder\Exception\InvalidBuildRequest;
 use Crosseno\Clues\Contract\ClueProviderInterface;
 use Crosseno\Learning\Contract\LearningPackInterface;
 use Crosseno\Lexicon\Contract\LanguagePackInterface;
+use Crosseno\Lexicon\Contract\RuntimeLanguagePackInterface;
 use Crosseno\Lexicon\Identity\StableAnswerKey;
 use Crosseno\Lexicon\Language\LanguageCode;
 
@@ -52,6 +53,34 @@ final readonly class PackDescriptor
             $seen[$key->coreKey->value] = true;
         }
         $this->answersByOrdinal = $answersByOrdinal;
+    }
+
+    public static function fromRuntimePack(
+        RuntimeLanguagePackInterface $runtimePack,
+        LanguageCode $clueLanguage,
+        ClueProviderInterface $clueProvider,
+        ?string $cluePackId = null,
+        ?string $cluePackVersion = null,
+        ?LearningPackInterface $learningPack = null,
+    ): self {
+        $identity = $runtimePack->runtimeIdentity();
+        $manifest = $runtimePack->manifest();
+        if ($identity->packId !== $manifest->metadata->packId
+            || $identity->dataVersion !== $manifest->metadata->dataVersion
+            || $identity->ordinalSpaceId !== $manifest->ordinalSpaceId
+            || !hash_equals($identity->stableKeyDigest, $manifest->stableKeyDigest)) {
+            throw new InvalidBuildRequest('Runtime-pack artifact and ordinal-space identity disagrees with its manifest.');
+        }
+
+        return new self(
+            $runtimePack,
+            $clueLanguage,
+            $cluePackId ?? $identity->packId,
+            $cluePackVersion ?? $identity->dataVersion,
+            $clueProvider,
+            $runtimePack->answerKeysByOrdinal(),
+            $learningPack,
+        );
     }
 
     /** @return list<StableAnswerKey> */

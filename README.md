@@ -1,12 +1,90 @@
 # crosseno/builder
 
-Storage-neutral orchestration for producing publication-ready Crosseno crosswords.
+Storage-neutral orchestration for producing complete, publication-ready Crosseno crosswords. Applications normally call this package rather than invoking the generator and clue assigner separately. CMS adapters remain responsible for persistence, transactions, idempotency storage, and scheduling.
 
-The API resolves compatible answer, clue, and optional directional learning packs; applies explicit history and fallback policies; runs bounded generation; assigns and validates clues; evaluates publication quality; and returns an immutable persistence-ready result.
+## Installation
 
-CMS and CLI adapters provide read-only usage history and own persistence, idempotency storage, and transactions.
+For the checked-in English runtime path, install `crosseno/builder`, `crosseno/clues`, and `crosseno/language-en`. The language package brings its SQLite catalog and solver-index runtime dependencies.
 
-Construct the builder from host-owned adapters, then submit an immutable request:
+```bash
+composer require crosseno/builder crosseno/clues crosseno/language-en
+```
+
+## Quick start
+
+Load the runtime pack, adapt its storage-neutral clue catalog, and use the versioned standard composition:
+
+```php
+use Crosseno\Builder\StandardBuilderFactory;
+use Crosseno\Builder\Policy\FailurePolicy;
+use Crosseno\Builder\Policy\WorkBudget;
+use Crosseno\Builder\Request\BuildDifficulty;
+use Crosseno\Builder\Request\IdempotencyKey;
+use Crosseno\Builder\Request\StandardBuildRequestFactory;
+use Crosseno\Clues\Catalog\LexicalCatalogClueProvider;
+use Crosseno\Core\Grid\GridDimensions;
+use Crosseno\Core\ResourceLimits;
+use Crosseno\Core\Validation\ValidationProfile;
+use Crosseno\Generator\Seed\GenerationSeed;
+use Crosseno\Generator\Strategy\GenerationStrategy;
+use Crosseno\LanguageEn\EnglishLanguagePack;
+use Crosseno\Lexicon\Language\LanguageCode;
+
+$limits = ResourceLimits::standard();
+$runtime = EnglishLanguagePack::load($limits);
+$provider = new LexicalCatalogClueProvider(
+    $runtime->catalog(),
+    $runtime->metadata()->stableKeyAlgorithmVersion,
+);
+$builder = (new StandardBuilderFactory())->create(
+    $runtime,
+    $provider,
+    new LanguageCode('en'),
+);
+$request = (new StandardBuildRequestFactory(
+    strategy: GenerationStrategy::Fast,
+    difficulty: BuildDifficulty::Easy,
+    qualityThreshold: 0,
+    failurePolicy: FailurePolicy::fail(),
+    workBudget: new WorkBudget(1, 16, 100_000, 100_000),
+    validationProfile: ValidationProfile::permissive(),
+))->create(
+    new LanguageCode('en'),
+    new LanguageCode('en'),
+    new GridDimensions(7, 7),
+    GenerationSeed::fromInteger(12345),
+);
+$result = $builder->build(
+    $request,
+    new IdempotencyKey('example-12345'),
+    StandardBuilderFactory::synchronousCancellation(),
+);
+
+if (!$result->succeeded()) {
+    echo $result->failure?->code . ': ' . $result->failure?->message;
+    var_dump($result->failure?->context, $result->warnings(), $result->fallbacks());
+    return;
+}
+
+$grid = $result->crossword?->grid;
+$entries = $result->crossword?->entries();
+$clues = $result->clues?->assignments();
+```
+
+`StandardBuilderFactory::PROFILE_ID` identifies the composition defaults. Each default—generator factory, clue assigner, quality evaluator, usage history, clock, and compatibility validator—can be replaced in its constructor. `PackDescriptor::fromRuntimePack()` obtains the supported ordinal map and validates runtime identity without artifact parsing.
+
+Run the executable integration example with readable output or explicitly labelled non-canonical debug JSON:
+
+```bash
+php examples/generate-english.php --rows=7 --columns=7 --strategy=fast --difficulty=easy --seed=12345
+php examples/generate-english.php --rows=7 --columns=7 --strategy=fast --difficulty=easy --seed=12345 --debug-json
+```
+
+The bundled 25-answer English development pack makes this an integration proof, not a production vocabulary benchmark. The example deliberately uses a permissive structural profile and a zero publication threshold locally; production defaults are not weakened.
+
+## Advanced manual composition
+
+Low-level dependency injection remains available for CMS authors and custom workflows:
 
 ```php
 use Crosseno\Builder\CrosswordBuilder;
@@ -20,19 +98,13 @@ $builder = new CrosswordBuilder(
     $clueAssigner,
     $qualityEvaluator,
     $usageHistory,
+    $clock,
 );
-
-$result = $builder->build($request, $idempotencyKey, $cancellationToken);
-if ($result->publishable()) {
-    $publisher->store($result);
-}
 ```
 
-The host supplies the catalog, generation/clue policies, request, idempotency
-key, cancellation token, and publisher. `BuildResult` is persistence-ready as
-an immutable object graph, but it is intentionally not a canonical serialized
-publication format. The host maps it to storage; canonical cross-format export
-belongs to the future `crosseno/formats` boundary.
+`BuildResult` is an immutable, persistence-ready object graph, but it is not a canonical interchange format. Stable export remains the responsibility of the future `crosseno/formats` boundary.
+
+See [getting started](docs/getting-started.md), [standard composition](docs/standard-composition.md), [manual composition](docs/manual-composition.md), [host integration](docs/host-integration.md), and [troubleshooting](docs/troubleshooting.md).
 
 ```bash
 composer install

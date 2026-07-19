@@ -77,12 +77,19 @@ use Crosseno\Learning\Model\LearningClue;
 use Crosseno\Lexicon\Candidate\AnswerClass;
 use Crosseno\Lexicon\Candidate\Difficulty;
 use Crosseno\Lexicon\Candidate\TriStateFlag;
+use Crosseno\Lexicon\Catalog\LexemeRecord;
+use Crosseno\Lexicon\Catalog\SenseRecord;
+use Crosseno\Lexicon\Catalog\SourceRecord;
 use Crosseno\Lexicon\Contract\LanguagePackInterface;
 use Crosseno\Lexicon\Contract\LexiconInterface;
+use Crosseno\Lexicon\Contract\RichLexicalCatalogInterface;
+use Crosseno\Lexicon\Contract\RuntimeLanguagePackInterface;
 use Crosseno\Lexicon\Contract\SolverIndexInterface;
+use Crosseno\Lexicon\Identity\LexemeKey;
 use Crosseno\Lexicon\Identity\StableAnswerKey;
 use Crosseno\Lexicon\Identity\StableKeyAlgorithmVersion;
 use Crosseno\Lexicon\Identity\StableKeyFactory;
+use Crosseno\Lexicon\Identity\StableSenseKey;
 use Crosseno\Lexicon\InMemory\InMemoryLexicon;
 use Crosseno\Lexicon\Language\AnswerNormalizerInterface;
 use Crosseno\Lexicon\Language\CellTokenizerInterface;
@@ -93,6 +100,8 @@ use Crosseno\Lexicon\Manifest\LanguagePackManifest;
 use Crosseno\Lexicon\Manifest\LanguagePackMetadata;
 use Crosseno\Lexicon\Record\AnswerProfile;
 use Crosseno\Lexicon\Record\AnswerRecord;
+use Crosseno\Lexicon\Runtime\ClueCoverageMetadata;
+use Crosseno\Lexicon\Runtime\RuntimePackIdentity;
 
 final class FixtureFactory
 {
@@ -128,12 +137,12 @@ final class FixtureFactory
     }
 
     /** @param list<AnswerRecord> $records */
-    public static function languagePack(array $records): TestLanguagePack
+    public static function languagePack(array $records, bool $compatibleRuntimeIdentity = true): TestLanguagePack
     {
         $metadata = new LanguagePackMetadata('builder.test.en', new LanguageCode('en'), '2026.07.1', 'nfc-v1', 'cells-v1', StableKeyAlgorithmVersion::v1());
         $manifest = new LanguagePackManifest($metadata, '0.1.0', '0.1.0', '0.1.0', [], \count($records), 0, [], str_repeat('a', 64), 'builder-test-space');
 
-        return new TestLanguagePack($metadata, $manifest, new InMemoryLexicon($records));
+        return new TestLanguagePack($metadata, $manifest, new InMemoryLexicon($records), $records, $compatibleRuntimeIdentity);
     }
 
     /** @param list<AnswerRecord> $records */
@@ -237,9 +246,16 @@ final class FixtureFactory
     }
 }
 
-final readonly class TestLanguagePack implements LanguagePackInterface
+final readonly class TestLanguagePack implements LanguagePackInterface, RuntimeLanguagePackInterface
 {
-    public function __construct(private LanguagePackMetadata $metadata, private LanguagePackManifest $manifest, private LexiconInterface $lexicon) {}
+    /** @param list<AnswerRecord> $records */
+    public function __construct(
+        private LanguagePackMetadata $metadata,
+        private LanguagePackManifest $manifest,
+        private LexiconInterface $lexicon,
+        private array $records,
+        private bool $compatibleRuntimeIdentity,
+    ) {}
 
     public function metadata(): LanguagePackMetadata
     {
@@ -264,6 +280,74 @@ final readonly class TestLanguagePack implements LanguagePackInterface
     public function equivalence(): LexicalEquivalenceInterface
     {
         return new TestLanguageServices();
+    }
+    public function catalog(): RichLexicalCatalogInterface
+    {
+        return new TestRichCatalog($this->lexicon, $this->manifest->recordCount);
+    }
+    public function solverIndex(): SolverIndexInterface
+    {
+        return $this->lexicon;
+    }
+    public function answerKeysByOrdinal(): array
+    {
+        return array_map(static fn(AnswerRecord $record): StableAnswerKey => $record->key, $this->records);
+    }
+    public function runtimeIdentity(): RuntimePackIdentity
+    {
+        return new RuntimePackIdentity(
+            $this->metadata->packId,
+            $this->metadata->dataVersion,
+            $this->compatibleRuntimeIdentity ? $this->manifest->stableKeyDigest : str_repeat('b', 64),
+            $this->manifest->ordinalSpaceId,
+            [],
+        );
+    }
+    public function clueCoverage(): ClueCoverageMetadata
+    {
+        return new ClueCoverageMetadata(['en' => $this->manifest->recordCount]);
+    }
+}
+
+final readonly class TestRichCatalog implements RichLexicalCatalogInterface
+{
+    public function __construct(private LexiconInterface $lexicon, private int $recordCount) {}
+
+    public function answer(StableAnswerKey $key): ?AnswerRecord
+    {
+        return $this->lexicon->answer($key);
+    }
+    public function answersForLexeme(LexemeKey $key): array
+    {
+        return $this->lexicon->answersForLexeme($key);
+    }
+    public function answersForSense(StableSenseKey $key): array
+    {
+        return $this->lexicon->answersForSense($key);
+    }
+    public function cluesForSense(StableSenseKey $key, ?LanguageCode $language = null): array
+    {
+        return [];
+    }
+    public function clueCoverage(): ClueCoverageMetadata
+    {
+        return new ClueCoverageMetadata(['en' => $this->recordCount]);
+    }
+    public function lexeme(LexemeKey $key): ?LexemeRecord
+    {
+        return null;
+    }
+    public function sense(StableSenseKey $key): ?SenseRecord
+    {
+        return null;
+    }
+    public function topicsForSense(StableSenseKey $key): array
+    {
+        return [];
+    }
+    public function source(string $id): ?SourceRecord
+    {
+        return null;
     }
 }
 
@@ -367,16 +451,19 @@ final class ScenarioGeneratorFactory implements GeneratorFactoryInterface
     }
 }
 
-final readonly class TestClueAssigner implements ClueAssignerInterface
+final class TestClueAssigner implements ClueAssignerInterface
 {
+    public int $calls = 0;
+
     public function __construct(
-        private int $score = 10_000,
-        private bool $fail = false,
-        private string $failureMessage = 'No valid fixture clue exists.',
+        private readonly int $score = 10_000,
+        private readonly bool $fail = false,
+        private readonly string $failureMessage = 'No valid fixture clue exists.',
     ) {}
 
     public function assign(Crossword $crossword, ClueProviderInterface $provider, ClueAssignmentConstraints $constraints, ClueSeed $seed): ClueAssignmentResult
     {
+        ++$this->calls;
         if ($this->fail) {
             throw new ClueAssignmentFailed($this->failureMessage);
         }
