@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ae939202a5918758c7287697608d7ae1",
+    "content-hash": "c59bbc36cce235955f7322c67c5d8c8b",
     "packages": [
         {
             "name": "crosseno/clues",
@@ -12,7 +12,7 @@
             "dist": {
                 "type": "path",
                 "url": "../clues",
-                "reference": "0f3ca0158fc009e4fd01551493eb492da52c63ee"
+                "reference": "b0b0faa6f992c36b7bbeafde2b69e5c9717a6866"
             },
             "require": {
                 "crosseno/core": "^0.1",
@@ -74,7 +74,7 @@
             "dist": {
                 "type": "path",
                 "url": "../core",
-                "reference": "2b82164097e80e47bc1d3e14c0b85afc229bd77b"
+                "reference": "c05840d4880569115ea45c6a4384264f51633209"
             },
             "require": {
                 "php": "^8.5"
@@ -133,7 +133,7 @@
             "dist": {
                 "type": "path",
                 "url": "../generator",
-                "reference": "f5e9a77aa3706aa73def6ae7c1dc12ac16aded08"
+                "reference": "93860ce9aae320d65997b6578e8109e29d903715"
             },
             "require": {
                 "crosseno/core": "^0.1",
@@ -256,7 +256,7 @@
             "dist": {
                 "type": "path",
                 "url": "../lexicon",
-                "reference": "ecf21b6cdb7b8b2cbd7dbe1a637bb7ac002e06ea"
+                "reference": "8784430810beb32b8d9da7b0f5ae1f6ec074c151"
             },
             "require": {
                 "crosseno/core": "^0.1",
@@ -598,11 +598,11 @@
         },
         {
             "name": "crosseno/language-en",
-            "version": "0.1.0",
+            "version": "0.2.0",
             "dist": {
                 "type": "path",
                 "url": "../language-en",
-                "reference": "72f2990508dcf285cfaa33d21d052b0bfa56b1d4"
+                "reference": "b2344496de88bb0dbfe11f506c273f40e3bb5c8c"
             },
             "require": {
                 "crosseno/core": "^0.1",
@@ -632,6 +632,9 @@
                 }
             },
             "scripts": {
+                "source:build": [
+                    "php bin/build-native-source.php"
+                ],
                 "artifacts:build": [
                     "php bin/build-artifacts.php"
                 ],
@@ -676,7 +679,7 @@
             "dist": {
                 "type": "path",
                 "url": "../lexicon-index",
-                "reference": "f5d9e1e01de630ff2cd4dca22611d2c9a3604d2a"
+                "reference": "edc28adef417a8bd522e2674a59140fe0b4a2904"
             },
             "require": {
                 "crosseno/core": "^0.1",
@@ -738,7 +741,7 @@
             "dist": {
                 "type": "path",
                 "url": "../lexicon-sqlite",
-                "reference": "47f289e4394b0812c88f587408ffa69c878ebb5f"
+                "reference": "57f5403d14c8e7ee5bbbda53de5619d78441cc66"
             },
             "require": {
                 "crosseno/core": "^0.1",

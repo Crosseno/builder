@@ -80,7 +80,7 @@ php examples/generate-english.php --rows=7 --columns=7 --strategy=fast --difficu
 php examples/generate-english.php --rows=7 --columns=7 --strategy=fast --difficulty=easy --seed=12345 --debug-json
 ```
 
-The bundled 25-answer English development pack makes this an integration proof, not a production vocabulary benchmark. The example deliberately uses a permissive structural profile and a zero publication threshold locally; production defaults are not weakened.
+The bundled 1,000-answer English development pack makes this an integration and first-scale proof, not a production vocabulary benchmark. The example deliberately uses a bounded fast request, a permissive structural profile, and a zero publication threshold locally; production defaults are not weakened. The language pack's documented benchmark matrix covers `5×5`, `7×7`, and `9×9` requests, but does not claim a general production success rate.
 
 ## Advanced manual composition
 
@@ -104,7 +104,7 @@ $builder = new CrosswordBuilder(
 
 `BuildResult` is an immutable, persistence-ready object graph, but it is not a canonical interchange format. Stable export remains the responsibility of the future `crosseno/formats` boundary.
 
-See [getting started](docs/getting-started.md), [standard composition](docs/standard-composition.md), [manual composition](docs/manual-composition.md), [host integration](docs/host-integration.md), and [troubleshooting](docs/troubleshooting.md).
+See [getting started](docs/getting-started.md), [standard composition](docs/standard-composition.md), [manual composition](docs/manual-composition.md), [host integration](docs/host-integration.md), [supported package matrix](docs/supported-package-matrix.md), and [troubleshooting](docs/troubleshooting.md).
 
 ```bash
 composer install

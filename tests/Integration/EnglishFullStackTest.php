@@ -52,20 +52,18 @@ final class EnglishFullStackTest extends TestCase
         self::assertGreaterThan(0, $first->generation->exploredNodes);
         self::assertSame('0000000000003039', $first->generation->seed->unsignedHex);
         self::assertSame('crosseno.language-en.dev', $first->versions->answerPackId);
-        self::assertSame('2026.07.1', $first->versions->answerPackVersion);
+        self::assertSame('2026.07.3', $first->versions->answerPackVersion);
         self::assertSame($first->publicationKey, $second->publicationKey);
         self::assertSame(self::golden($first), self::golden($second));
         self::assertSame(
-            ['school', 'dog', 'apple', 'cat', 'NASA', 'cats'],
+            ['hard', 'earth', 'dream', 'shop'],
             array_map(static fn($entry): string => $entry->answer->displayText, $first->crossword->entries()),
         );
         self::assertSame([
-            '3:0:horizontal:6',
-            '2:3:vertical:3',
-            '0:5:vertical:5',
-            '3:1:vertical:3',
-            '0:2:horizontal:4',
-            '0:0:vertical:4',
+            '3:1:horizontal:4',
+            '1:3:vertical:5',
+            '1:1:horizontal:5',
+            '5:2:horizontal:4',
         ], array_map(static fn($entry): string => $entry->placement->signature(), $first->crossword->entries()));
     }
 

@@ -23,7 +23,14 @@ use Crosseno\Generator\Strategy\GenerationStrategy;
 use Crosseno\LanguageEn\EnglishLanguagePack;
 use Crosseno\Lexicon\Language\LanguageCode;
 
-require \dirname(__DIR__) . '/vendor/autoload.php';
+$autoload = \dirname(__DIR__) . '/vendor/autoload.php';
+if (!is_file($autoload)) {
+    $autoload = \dirname(__DIR__, 3) . '/autoload.php';
+}
+if (!is_file($autoload)) {
+    throw new RuntimeException('Composer autoload.php was not found.');
+}
+require $autoload;
 
 $options = getopt('', ['rows::', 'columns::', 'strategy::', 'difficulty::', 'seed::', 'debug-json']);
 $rows = positiveInteger($options['rows'] ?? '5', 'rows');
@@ -51,7 +58,7 @@ $clueProvider = new LexicalCatalogClueProvider(
 );
 $builder = (new StandardBuilderFactory())->create($runtime, $clueProvider, $language);
 
-// The 25-answer development pack needs deliberately small, permissive overrides.
+// Keep the development-pack proof bounded and independent of production defaults.
 $request = (new StandardBuildRequestFactory(
     strategy: $strategy,
     difficulty: $difficulty,

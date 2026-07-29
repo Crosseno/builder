@@ -38,6 +38,18 @@ jobs:
         with:
           repository: Crosseno/learning
           path: learning
+      - uses: actions/checkout@v5
+        with:
+          repository: Crosseno/lexicon-index
+          path: lexicon-index
+      - uses: actions/checkout@v5
+        with:
+          repository: Crosseno/lexicon-sqlite
+          path: lexicon-sqlite
+      - uses: actions/checkout@v5
+        with:
+          repository: Crosseno/language-en
+          path: language-en
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'

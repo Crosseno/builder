@@ -1,0 +1,41 @@
+name: Release installation
+
+on:
+  workflow_dispatch:
+    inputs:
+      builder_version:
+        description: Published Builder constraint
+        required: true
+        default: ^0.1
+      language_en_version:
+        description: Published English pack constraint
+        required: true
+        default: ^0.2
+
+permissions:
+  contents: read
+
+jobs:
+  packagist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+          extensions: intl, mbstring
+          tools: composer:v2
+      - name: Resolve tagged packages without workspace repositories
+        run: |
+          mkdir release-install
+          cd release-install
+          composer require --no-interaction --prefer-dist \
+            "crosseno/builder:${{ inputs.builder_version }}" \
+            "crosseno/clues:^0.1" \
+            "crosseno/language-en:${{ inputs.language_en_version }}"
+          composer show --locked crosseno/builder
+          composer show --locked crosseno/clues
+          composer show --locked crosseno/language-en
+      - name: Run the distributed English example
+        working-directory: release-install
+        run: php vendor/crosseno/builder/examples/generate-english.php --rows=7 --columns=7 --seed=12345
