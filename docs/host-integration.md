@@ -14,6 +14,8 @@ Implement `UsageHistoryInterface` as a read-only bounded lookup. Do not translat
 
 Persist structured failure codes, bounded scalar context, warnings, fallback records, and version metadata. Do not persist source payloads, clue catalog rows, filesystem paths, credentials, or exception traces in user-visible diagnostics. Failed and postponed results never contain partial publishable crossword/clue content.
 
+Successful version metadata includes the composition profile and clue-assignment algorithm. Bilingual hosts must provide leakage language services for the requested clue language when using the standard clue assigner.
+
 ## Rendering and formats
 
 Clue and source text is untrusted plain data. Escape it for HTML, attributes, JSON, terminal, or other output contexts. `BuildResult` is persistence-ready but not a canonical exchange format; use the future `crosseno/formats` layer for stable serialization.

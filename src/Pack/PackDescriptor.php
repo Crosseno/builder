@@ -47,10 +47,16 @@ final readonly class PackDescriptor
         }
         $seen = [];
         foreach ($answersByOrdinal as $key) {
-            if (!$key instanceof StableAnswerKey || isset($seen[$key->coreKey->value])) {
-                throw new InvalidBuildRequest('Answer ordinal map must contain unique stable answer keys.');
+            if (!$key instanceof StableAnswerKey
+                || $key->algorithmVersion->major !== $manifest->metadata->stableKeyAlgorithmVersion->major
+                || isset($seen[$key->coreKey->value])) {
+                throw new InvalidBuildRequest('Answer ordinal map must contain unique stable answer keys using the manifest algorithm version.');
             }
             $seen[$key->coreKey->value] = true;
+        }
+        $digest = hash('sha256', implode("\n", array_keys($seen)));
+        if (!hash_equals($manifest->stableKeyDigest, $digest)) {
+            throw new InvalidBuildRequest('Answer ordinal map does not match the answer-pack stable-key digest.');
         }
         $this->answersByOrdinal = $answersByOrdinal;
     }

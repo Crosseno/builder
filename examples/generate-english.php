@@ -169,6 +169,7 @@ if ($debug) {
         'answer_keys' => $result->answerKeys(),
         'clues' => $result->clues,
         'quality' => $quality,
+        'versions' => $result->versions,
         'warnings' => $result->warnings(),
         'fallbacks' => $result->fallbacks(),
     ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";

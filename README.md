@@ -71,7 +71,7 @@ $entries = $result->crossword?->entries();
 $clues = $result->clues?->assignments();
 ```
 
-`StandardBuilderFactory::PROFILE_ID` identifies the composition defaults. Each default—generator factory, clue assigner, quality evaluator, usage history, clock, and compatibility validator—can be replaced in its constructor. `PackDescriptor::fromRuntimePack()` obtains the supported ordinal map and validates runtime identity without artifact parsing.
+`StandardBuilderFactory::PROFILE_ID` identifies the composition defaults and is retained in successful version metadata together with the clue-assignment algorithm. Each default—generator factory, clue assigner, quality evaluator, usage history, clock, compatibility validator, and leakage language-service provider—can be replaced in its constructor. Bilingual standard composition requires injected leakage services for the clue language or a custom clue assigner. `PackDescriptor::fromRuntimePack()` obtains the supported ordinal map and verifies its digest, key algorithm, and runtime identity without artifact parsing.
 
 Run the executable integration example with readable output or explicitly labelled non-canonical debug JSON:
 

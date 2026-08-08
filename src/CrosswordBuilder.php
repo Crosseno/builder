@@ -30,6 +30,8 @@ use Crosseno\Clues\Assignment\MissingCluePolicy;
 use Crosseno\Clues\Contract\ClueAssignerInterface;
 use Crosseno\Clues\Exception\ClueAssignmentFailed;
 use Crosseno\Clues\Exception\CluesException;
+use Crosseno\Core\Crossword\Crossword;
+use Crosseno\Core\Crossword\CrosswordEntry;
 use Crosseno\Core\Exception\CoreException;
 use Crosseno\Core\Grid\GridDimensions;
 use Crosseno\Generator\Budget\CancellationTokenInterface;
@@ -49,7 +51,7 @@ use Crosseno\Lexicon\Language\LanguageMatchingPolicy;
 
 final readonly class CrosswordBuilder implements BuilderInterface
 {
-    public const VERSION = '0.1.0';
+    public const VERSION = '0.1.1';
     public const KEY_ALGORITHM = 'crosseno-publication-key-v1';
 
     public function __construct(
@@ -60,6 +62,7 @@ final readonly class CrosswordBuilder implements BuilderInterface
         private QualityEvaluatorInterface $quality,
         private UsageHistoryInterface $history,
         private ClockInterface $clock = new SystemClock(),
+        private ?string $compositionProfile = null,
     ) {}
 
     public function build(BuildRequest $request, IdempotencyKey $idempotencyKey, CancellationTokenInterface $cancellation): BuildResult
@@ -177,7 +180,19 @@ final readonly class CrosswordBuilder implements BuilderInterface
                             }
                             if ($clues->isValid() && \count($clues->clueSet->assignments()) === \count($generated->crossword->entries())
                                 && $publicationQuality->final >= $request->qualityThreshold) {
-                                return BuildResult::success($publicationKey, $snapshot, $requestHash, $generated->crossword, $clues->clueSet, $generated->metadata, $publicationQuality, $versions, $warnings, $fallbacks);
+                                $resolvedCrossword = $this->resolveSenses($generated->crossword, $clues->clueSet, $request);
+                                return BuildResult::success(
+                                    $publicationKey,
+                                    $snapshot,
+                                    $requestHash,
+                                    $resolvedCrossword,
+                                    $clues->clueSet,
+                                    $generated->metadata,
+                                    $publicationQuality,
+                                    $this->versions($pack, $clues->algorithmId),
+                                    $warnings,
+                                    $fallbacks,
+                                );
                             }
                             $bestRejectedQuality = max($bestRejectedQuality ?? 0, $publicationQuality->final);
                             $lastFailure = new BuildFailure(
@@ -255,7 +270,7 @@ final readonly class CrosswordBuilder implements BuilderInterface
         return BuildResult::failure($status, $publicationKey, $snapshot, $requestHash, new BuildFailure($code, $message), $warnings, $fallbacks, $generation, $versions);
     }
 
-    private function versions(PackDescriptor $pack): VersionSnapshot
+    private function versions(PackDescriptor $pack, ?string $clueAssignmentAlgorithm = null): VersionSnapshot
     {
         $answer = $pack->answerPack->metadata();
         $learning = $pack->learningPack?->manifest();
@@ -269,7 +284,32 @@ final readonly class CrosswordBuilder implements BuilderInterface
             $pack->cluePackVersion,
             $learning?->packId,
             $learning?->dataVersion,
+            $this->compositionProfile,
+            $clueAssignmentAlgorithm,
         );
+    }
+
+    private function resolveSenses(Crossword $crossword, \Crosseno\Clues\Assignment\ClueSet $clues, BuildRequest $request): Crossword
+    {
+        $assignments = [];
+        foreach ($clues->assignments() as $assignment) {
+            $assignments[$assignment->entryIndex] = $assignment;
+        }
+
+        $entries = [];
+        foreach ($crossword->entries() as $index => $entry) {
+            $assignedSense = $assignments[$index]->clue->senseKey?->coreKey;
+            if ($entry->senseKey !== null && $assignedSense !== null && !$entry->senseKey->equals($assignedSense)) {
+                throw new ClueAssignmentFailed('Assigned clue sense does not match the generated entry sense.');
+            }
+            $entries[] = new CrosswordEntry(
+                $entry->answer,
+                $entry->placement,
+                $entry->senseKey ?? $assignedSense,
+            );
+        }
+
+        return new Crossword($crossword->grid, $entries, $crossword->duplicatePlacementPolicy, $request->resourceLimits);
     }
 
     private function runSeed(GenerationSeed $seed, int $run): GenerationSeed

@@ -7,6 +7,7 @@ namespace Crosseno\Builder;
 use Crosseno\Builder\Contract\GeneratorFactoryInterface;
 use Crosseno\Builder\Contract\QualityEvaluatorInterface;
 use Crosseno\Builder\Contract\UsageHistoryInterface;
+use Crosseno\Builder\Exception\InvalidBuildRequest;
 use Crosseno\Builder\Generation\DefaultGeneratorFactory;
 use Crosseno\Builder\Generation\EligibilityBuilder;
 use Crosseno\Builder\History\NullUsageHistory;
@@ -18,6 +19,7 @@ use Crosseno\Builder\Quality\StandardQualityEvaluator;
 use Crosseno\Clues\Assignment\DeterministicClueAssigner;
 use Crosseno\Clues\Contract\ClueAssignerInterface;
 use Crosseno\Clues\Contract\ClueProviderInterface;
+use Crosseno\Clues\Contract\LanguageServiceProviderInterface;
 use Crosseno\Clues\Scoring\DifficultyClueScorer;
 use Crosseno\Clues\Selection\DeterministicClueSelector;
 use Crosseno\Clues\Validation\CompositeClueValidator;
@@ -50,6 +52,7 @@ final readonly class StandardBuilderFactory
     private UsageHistoryInterface $history;
     private ClockInterface $clock;
     private ManifestCompatibilityValidator $compatibility;
+    private ?LanguageServiceProviderInterface $languageServices;
 
     public function __construct(
         ?GeneratorFactoryInterface $generators = null,
@@ -58,6 +61,7 @@ final readonly class StandardBuilderFactory
         ?UsageHistoryInterface $history = null,
         ?ClockInterface $clock = null,
         ?ManifestCompatibilityValidator $compatibility = null,
+        ?LanguageServiceProviderInterface $languageServices = null,
     ) {
         $this->clock = $clock ?? new SystemClock();
         $this->generators = $generators ?? new DefaultGeneratorFactory(
@@ -69,6 +73,7 @@ final readonly class StandardBuilderFactory
         $this->quality = $quality ?? new StandardQualityEvaluator();
         $this->history = $history ?? new NullUsageHistory();
         $this->compatibility = $compatibility ?? new ManifestCompatibilityValidator();
+        $this->languageServices = $languageServices;
     }
 
     public function create(
@@ -92,10 +97,11 @@ final readonly class StandardBuilderFactory
             new PackResolver(new InMemoryPackCatalog([$descriptor]), $this->compatibility),
             new EligibilityBuilder(),
             $this->generators,
-            $this->clueAssigner ?? self::standardClueAssigner($runtimePack),
+            $this->clueAssigner ?? self::standardClueAssigner($runtimePack, $clueLanguage, $this->languageServices),
             $this->quality,
             $this->history,
             $this->clock,
+            self::PROFILE_ID,
         );
     }
 
@@ -104,9 +110,26 @@ final readonly class StandardBuilderFactory
         return new NeverCancelled();
     }
 
-    private static function standardClueAssigner(RuntimeLanguagePackInterface $runtimePack): ClueAssignerInterface
-    {
+    private static function standardClueAssigner(
+        RuntimeLanguagePackInterface $runtimePack,
+        LanguageCode $clueLanguage,
+        ?LanguageServiceProviderInterface $languageServices,
+    ): ClueAssignerInterface {
         $matcher = new Rfc4647LanguageMatcher();
+        if ($languageServices === null) {
+            if ($runtimePack->metadata()->answerLanguage->value !== $clueLanguage->value) {
+                throw new InvalidBuildRequest('Bilingual standard composition requires clue-language leakage services or a custom clue assigner.');
+            }
+            $languageServices = new InMemoryLanguageServiceProvider([
+                $runtimePack->metadata()->answerLanguage->value => new LeakageLanguageServices(
+                    $runtimePack->normalizer(),
+                    $runtimePack->equivalence(),
+                ),
+            ]);
+        }
+        if ($languageServices->forLanguage($clueLanguage) === null) {
+            throw new InvalidBuildRequest('Standard composition requires leakage services for the requested clue language.');
+        }
 
         return new DeterministicClueAssigner(
             new CompositeClueValidator([
@@ -114,12 +137,7 @@ final readonly class StandardBuilderFactory
                 new SenseClueValidator(),
                 new DifficultyClueValidator(),
                 new LengthClueValidator(),
-                new LeakageClueValidator(new InMemoryLanguageServiceProvider([
-                    $runtimePack->metadata()->answerLanguage->value => new LeakageLanguageServices(
-                        $runtimePack->normalizer(),
-                        $runtimePack->equivalence(),
-                    ),
-                ])),
+                new LeakageClueValidator($languageServices),
             ]),
             new DeterministicClueSelector(new DifficultyClueScorer()),
             new StandardClueSetValidator(),

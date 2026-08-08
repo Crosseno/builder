@@ -15,6 +15,8 @@ final readonly class VersionSnapshot implements \JsonSerializable
         public string $cluePackVersion,
         public ?string $learningPackId,
         public ?string $learningPackVersion,
+        public ?string $compositionProfile = null,
+        public ?string $clueAssignmentAlgorithm = null,
     ) {}
 
     /** @return array<string, ?string> */
@@ -29,6 +31,8 @@ final readonly class VersionSnapshot implements \JsonSerializable
             'cluePackVersion' => $this->cluePackVersion,
             'learningPackId' => $this->learningPackId,
             'learningPackVersion' => $this->learningPackVersion,
+            'compositionProfile' => $this->compositionProfile,
+            'clueAssignmentAlgorithm' => $this->clueAssignmentAlgorithm,
         ];
     }
 }

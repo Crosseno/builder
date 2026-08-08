@@ -140,7 +140,11 @@ final class FixtureFactory
     public static function languagePack(array $records, bool $compatibleRuntimeIdentity = true): TestLanguagePack
     {
         $metadata = new LanguagePackMetadata('builder.test.en', new LanguageCode('en'), '2026.07.1', 'nfc-v1', 'cells-v1', StableKeyAlgorithmVersion::v1());
-        $manifest = new LanguagePackManifest($metadata, '0.1.0', '0.1.0', '0.1.0', [], \count($records), 0, [], str_repeat('a', 64), 'builder-test-space');
+        $stableKeyDigest = hash('sha256', implode("\n", array_map(
+            static fn(AnswerRecord $record): string => $record->key->coreKey->value,
+            $records,
+        )));
+        $manifest = new LanguagePackManifest($metadata, '0.1.0', '0.1.0', '0.1.0', [], \count($records), 0, [], $stableKeyDigest, 'builder-test-space');
 
         return new TestLanguagePack($metadata, $manifest, new InMemoryLexicon($records), $records, $compatibleRuntimeIdentity);
     }
