@@ -56,6 +56,16 @@ jobs:
           coverage: none
           extensions: intl, mbstring
           tools: composer:v2
+      - name: Configure workspace repositories
+        run: |
+          composer config --global repositories.core "{\"type\":\"path\",\"url\":\"${GITHUB_WORKSPACE}/core\",\"options\":{\"symlink\":true,\"versions\":{\"crosseno/core\":\"0.1.0\"}}}"
+          composer config --global repositories.lexicon "{\"type\":\"path\",\"url\":\"${GITHUB_WORKSPACE}/lexicon\",\"options\":{\"symlink\":true,\"versions\":{\"crosseno/lexicon\":\"0.1.0\"}}}"
+          composer config --global repositories.generator "{\"type\":\"path\",\"url\":\"${GITHUB_WORKSPACE}/generator\",\"options\":{\"symlink\":true,\"versions\":{\"crosseno/generator\":\"0.1.0\"}}}"
+          composer config --global repositories.clues "{\"type\":\"path\",\"url\":\"${GITHUB_WORKSPACE}/clues\",\"options\":{\"symlink\":true,\"versions\":{\"crosseno/clues\":\"0.1.0\"}}}"
+          composer config --global repositories.learning "{\"type\":\"path\",\"url\":\"${GITHUB_WORKSPACE}/learning\",\"options\":{\"symlink\":true,\"versions\":{\"crosseno/learning\":\"0.1.0\"}}}"
+          composer config --global repositories.lexicon-index "{\"type\":\"path\",\"url\":\"${GITHUB_WORKSPACE}/lexicon-index\",\"options\":{\"symlink\":true,\"versions\":{\"crosseno/lexicon-index\":\"0.1.0\"}}}"
+          composer config --global repositories.lexicon-sqlite "{\"type\":\"path\",\"url\":\"${GITHUB_WORKSPACE}/lexicon-sqlite\",\"options\":{\"symlink\":true,\"versions\":{\"crosseno/lexicon-sqlite\":\"0.1.0\"}}}"
+          composer config --global repositories.language-en "{\"type\":\"path\",\"url\":\"${GITHUB_WORKSPACE}/language-en\",\"options\":{\"symlink\":true,\"versions\":{\"crosseno/language-en\":\"0.2.0\"}}}"
       - uses: ramsey/composer-install@v4
         with:
           dependency-versions: ${{ matrix.dependencies }}

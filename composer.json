@@ -3,16 +3,6 @@
     "description": "Storage-neutral orchestration for producing publication-ready Crosseno crosswords.",
     "type": "library",
     "license": "MIT",
-    "repositories": [
-        {"type": "path", "url": "../core", "options": {"symlink": true, "versions": {"crosseno/core": "0.1.0"}}},
-        {"type": "path", "url": "../lexicon", "options": {"symlink": true, "versions": {"crosseno/lexicon": "0.1.0"}}},
-        {"type": "path", "url": "../generator", "options": {"symlink": true, "versions": {"crosseno/generator": "0.1.0"}}},
-        {"type": "path", "url": "../clues", "options": {"symlink": true, "versions": {"crosseno/clues": "0.1.0"}}},
-        {"type": "path", "url": "../learning", "options": {"symlink": true, "versions": {"crosseno/learning": "0.1.0"}}},
-        {"type": "path", "url": "../lexicon-index", "options": {"symlink": true, "versions": {"crosseno/lexicon-index": "0.1.0"}}},
-        {"type": "path", "url": "../lexicon-sqlite", "options": {"symlink": true, "versions": {"crosseno/lexicon-sqlite": "0.1.0"}}},
-        {"type": "path", "url": "../language-en", "options": {"symlink": true, "versions": {"crosseno/language-en": "0.2.0"}}}
-    ],
     "require": {
         "php": "^8.5",
         "crosseno/clues": "^0.1",

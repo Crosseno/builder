@@ -20,7 +20,7 @@ All packages require PHP `^8.5`. Builder's runtime constraints intentionally exc
 
 Before publishing the next Builder release:
 
-1. Tag the currently untagged `generator`, `clues`, `learning`, and `builder` repositories in dependency order.
+1. Tag the release candidates in dependency order: `lexicon`; `lexicon-sqlite`; `compiler`; `lexicon-index`; `generator` and `clues`; `learning`; `language-en`; then `builder`. `core` already has a compatible `0.1.0` release.
 2. Publish all compatible tagged packages to Packagist.
 3. In an empty directory with no workspace path repositories, run:
 
@@ -38,4 +38,4 @@ Before publishing the next Builder release:
 
 4. Run the manual `Release installation` GitHub Actions workflow with the published Builder and English-pack constraints. It performs the same clean resolution and executable proof on PHP 8.5.
 
-The release is not installation-verified until those commands resolve exclusively from tagged distributions. Workspace path-version declarations are local development configuration and are not evidence of a published installation.
+The release is not installation-verified until those commands resolve exclusively from tagged distributions. CI injects sibling path repositories through Composer's global root configuration for source-level checks; published package manifests contain no path repositories, and workspace resolution is not evidence of a published installation.

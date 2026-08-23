@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c59bbc36cce235955f7322c67c5d8c8b",
+    "content-hash": "0f5f3b56aeb49c4dcaa177e8aad39d20",
     "packages": [
         {
             "name": "crosseno/clues",
